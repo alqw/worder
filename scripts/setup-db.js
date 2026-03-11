@@ -1,0 +1,55 @@
+const { Client } = require('pg');
+require('dotenv').config({ path: '.env.local' });
+
+async function setupDb() {
+  const client = new Client({
+    connectionString: process.env.SUPABASE_DB_URL,
+  });
+
+  try {
+    await client.connect();
+    console.log('Connected to database');
+
+    const query = `
+      CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+      CREATE TABLE IF NOT EXISTS packs (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          name TEXT NOT NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS words (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          pack_id UUID REFERENCES packs(id) ON DELETE CASCADE,
+          word TEXT NOT NULL,
+          translation TEXT NOT NULL,
+          mastery_score INTEGER DEFAULT 0 CHECK (mastery_score >= 0 AND mastery_score <= 5),
+          last_reviewed TIMESTAMP WITH TIME ZONE,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+      );
+
+      -- Optional: RLS Policies for local dev (if needed, but we'll assume standard usage for anon key for now)
+      -- Let's enable RLS and just allow all for the anon role for simplicity in this task.
+      ALTER TABLE packs ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE words ENABLE ROW LEVEL SECURITY;
+
+      -- Drop existing policies if any to prevent errors on re-run
+      DROP POLICY IF EXISTS "Allow all on packs" ON packs;
+      DROP POLICY IF EXISTS "Allow all on words" ON words;
+
+      CREATE POLICY "Allow all on packs" ON packs FOR ALL USING (true);
+      CREATE POLICY "Allow all on words" ON words FOR ALL USING (true);
+    `;
+
+    console.log('Executing query...');
+    await client.query(query);
+    console.log('Database tables created successfully');
+  } catch (err) {
+    console.error('Error executing query', err.stack);
+  } finally {
+    await client.end();
+  }
+}
+
+setupDb();
