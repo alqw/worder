@@ -50,6 +50,19 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const currentWord = words[currentIndex];
   const progressPercent = Math.round((currentIndex / initialWords.length) * 100);
 
+  // Helper to check if a user input matches *any* part of a multi-word translation
+  const checkPartialTranslation = (input: string, correctTranslation: string) => {
+    const normalize = (s: string) => s.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    const normalizedInput = normalize(input);
+    if (!normalizedInput) return false;
+
+    // Split the correct translation by commas, slashes, or spaces to get possible valid answers
+    const possibleAnswers = correctTranslation.split(/[\s,/]+/).map(normalize).filter(Boolean);
+    
+    // Check if the input exactly matches the full translation OR any of the individual words
+    return normalize(correctTranslation) === normalizedInput || possibleAnswers.includes(normalizedInput);
+  };
+
   const handleAnswer = (isCorrect: boolean) => {
     if (showAnswerFeedback !== 'idle') return; // Prevent double clicking
 
@@ -154,9 +167,9 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
               <Button
                 key={i}
                 variant={variant}
-                className={`py-8 text-lg transition-all ${
+                className={`py-8 text-lg transition-all hover:scale-105 active:scale-95 duration-200 ${
                   showAnswerFeedback !== 'idle' && opt === currentWord.translation 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    ? 'bg-green-600 hover:bg-green-700 text-white scale-105' 
                     : ''
                 }`}
                 disabled={showAnswerFeedback !== 'idle'}
@@ -174,22 +187,22 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const renderWritten = () => {
     const checkAnswer = (e: React.FormEvent) => {
       e.preventDefault();
-      handleAnswer(answerInput.trim().toLowerCase() === currentWord.translation.toLowerCase());
+      handleAnswer(checkPartialTranslation(answerInput, currentWord.translation));
     };
 
     return (
-      <div className="space-y-6 text-center">
-        <h3 className="text-3xl font-bold mb-8">{currentWord.word}</h3>
+      <div className="space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
+        <h3 className="text-3xl font-bold mb-8 animate-in slide-in-from-top-4">{currentWord.word}</h3>
         <form onSubmit={checkAnswer} className="space-y-4 max-w-sm mx-auto">
           <Input
             autoFocus
             placeholder="Type the translation..."
-            className="text-center text-lg py-6"
+            className="text-center text-lg py-6 transition-all focus:scale-105 duration-200"
             value={answerInput}
             onChange={(e) => setAnswerInput(e.target.value)}
             disabled={showAnswerFeedback !== 'idle'}
           />
-          <Button type="submit" className="w-full" disabled={!answerInput.trim() || showAnswerFeedback !== 'idle'}>
+          <Button type="submit" className="w-full transition-transform hover:scale-105 active:scale-95 duration-200" disabled={!answerInput.trim() || showAnswerFeedback !== 'idle'}>
             Check Answer
           </Button>
         </form>
@@ -203,23 +216,22 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   };
 
   const renderFlashcard = () => {
-    const checkAnswer = (success: boolean) => handleAnswer(success);
     return (
-      <div className="space-y-8 text-center">
-        <h3 className="text-4xl font-extrabold">{currentWord.word}</h3>
+      <div className="space-y-8 text-center animate-in fade-in zoom-in-95 duration-300">
+        <h3 className="text-4xl font-extrabold animate-in slide-in-from-top-4">{currentWord.word}</h3>
         
         {showAnswerFeedback === 'idle' ? (
-          <Button size="lg" onClick={() => setShowAnswerFeedback('correct')} variant="secondary" className="w-full max-w-sm">
+          <Button size="lg" onClick={() => setShowAnswerFeedback('correct')} variant="secondary" className="w-full max-w-sm transition-transform hover:scale-105 active:scale-95 duration-200">
             Show Translation
           </Button>
         ) : (
-          <div className="space-y-6 animate-in slide-in-from-bottom-2 fade-in">
+          <div className="space-y-6 animate-in slide-in-from-bottom-6 fade-in duration-500">
             <h4 className="text-2xl font-medium text-primary">{currentWord.translation}</h4>
             <div className="flex gap-4 justify-center">
-              <Button size="lg" variant="destructive" onClick={() => handleAnswer(false)} className="gap-2">
+              <Button size="lg" variant="destructive" onClick={() => handleAnswer(false)} className="gap-2 transition-transform hover:scale-105 active:scale-95 duration-200">
                 <XCircle size={18} /> Did not know
               </Button>
-              <Button size="lg" onClick={() => handleAnswer(true)} className="gap-2 bg-green-600 hover:bg-green-700 text-white">
+              <Button size="lg" onClick={() => handleAnswer(true)} className="gap-2 bg-green-600 hover:bg-green-700 text-white transition-transform hover:scale-105 active:scale-95 duration-200">
                 <CheckCircle2 size={18} /> Knew it!
               </Button>
             </div>
@@ -232,12 +244,14 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const renderAudio = () => {
     const checkAnswer = (e: React.FormEvent) => {
       e.preventDefault();
-      // Audio dictation means they hear the word, and have to type the word (or translation, let's say they type the Word)
-      handleAnswer(answerInput.trim().toLowerCase() === currentWord.word.toLowerCase());
+      // Audio dictation requires typing the exact word or translation
+      const isWordMatch = checkPartialTranslation(answerInput, currentWord.word);
+      const isTransMatch = checkPartialTranslation(answerInput, currentWord.translation);
+      handleAnswer(isWordMatch || isTransMatch);
     };
 
     return (
-      <div className="space-y-6 text-center">
+      <div className="space-y-6 text-center animate-in fade-in zoom-in-95 duration-300">
         <div className="flex justify-center mb-6">
           <Button 
             size="icon" 
@@ -254,12 +268,12 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
           <Input
             autoFocus
             placeholder="Type what you hear..."
-            className="text-center text-lg py-6"
+            className="text-center text-lg py-6 transition-all focus:scale-105 duration-200"
             value={answerInput}
             onChange={(e) => setAnswerInput(e.target.value)}
             disabled={showAnswerFeedback !== 'idle'}
           />
-          <Button type="submit" className="w-full" disabled={!answerInput.trim() || showAnswerFeedback !== 'idle'}>
+          <Button type="submit" className="w-full transition-transform hover:scale-105 active:scale-95 duration-200" disabled={!answerInput.trim() || showAnswerFeedback !== 'idle'}>
             Check Answer
           </Button>
         </form>
