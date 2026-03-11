@@ -183,7 +183,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
               <Button
                 key={i}
                 variant="outline"
-                className="py-8 text-lg transition-all hover:scale-105 active:scale-95 duration-200 relative"
+                className="h-auto py-6 px-12 text-lg text-left transition-all hover:scale-105 active:scale-95 duration-200 relative break-words"
                 disabled={showAnswerFeedback !== 'idle'}
                 onClick={() => handleAnswer(opt === currentWord.translation)}
               >
