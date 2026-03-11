@@ -1,5 +1,12 @@
 import './globals.css';
 import { Toaster as SonnerToaster } from 'sonner';
+import { Poppins } from 'next/font/google';
+
+const poppins = Poppins({
+  weight: ['400', '500', '600', '700', '800'],
+  subsets: ['latin'],
+  variable: '--font-sans',
+});
 
 export default function RootLayout({
   children,
@@ -8,7 +15,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased min-h-screen">
+      <body className={`${poppins.variable} antialiased min-h-screen font-sans`}>
         {children}
         <SonnerToaster richColors position="top-center" />
       </body>
