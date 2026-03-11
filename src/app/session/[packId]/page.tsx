@@ -8,11 +8,12 @@ export default async function SessionPage({
   params,
   searchParams,
 }: {
-  params: { packId: string };
-  searchParams: { mode?: string };
+  params: Promise<{ packId: string }>;
+  searchParams: Promise<{ mode?: string }>;
 }) {
-  const mode = searchParams.mode === 'review' ? 'review' : 'learn';
-  const packId = params.packId;
+  const { mode: searchMode } = await searchParams;
+  const { packId } = await params;
+  const mode = searchMode === 'review' ? 'review' : 'learn';
 
   // Retrieve 10 words based on mode
   const words =

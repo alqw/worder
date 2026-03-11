@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 
 export const revalidate = 0;
 
-export default async function PackPage({ params }: { params: { id: string } }) {
-  const pack = await getPack(params.id);
+export default async function PackPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const pack = await getPack(id);
   
   if (!pack) {
     notFound();
