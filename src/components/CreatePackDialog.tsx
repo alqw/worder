@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,7 +22,12 @@ export function CreatePackDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,44 +50,54 @@ export function CreatePackDialog() {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="group gap-2 transition-all hover:pr-5">
-          <Plus size={18} className="transition-transform group-hover:rotate-90" />
+    <>
+      {isMounted && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button className="group gap-2 transition-all hover:pr-5">
+              <Plus size={18} className="transition-transform group-hover:rotate-90" />
+              Create Pack
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <form onSubmit={onSubmit}>
+              <DialogHeader>
+                <DialogTitle>Create New Pack</DialogTitle>
+                <DialogDescription>
+                  Give your new vocabulary pack a name to get started.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Spanish Basics 1"
+                    className="col-span-3"
+                    autoFocus
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Creating...' : 'Create'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
+      {!isMounted && (
+        <Button className="group gap-2 transition-all hover:pr-5 opacity-50 cursor-pointer">
+          <Plus size={18} />
           Create Pack
         </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
-            <DialogTitle>Create New Pack</DialogTitle>
-            <DialogDescription>
-              Give your new vocabulary pack a name to get started.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Name
-              </Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Spanish Basics 1"
-                className="col-span-3"
-                autoFocus
-                required
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   );
 }
