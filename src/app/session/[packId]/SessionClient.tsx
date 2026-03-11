@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Word, updateWordMastery } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +33,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const [answerInput, setAnswerInput] = useState('');
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [isFlashcardRevealed, setIsFlashcardRevealed] = useState(false);
+  const [currentOptions, setCurrentOptions] = useState<string[]>([]);
 
   // Randomize quiz mode on a new word setup
   const setupNextWord = (index: number) => {
@@ -42,6 +43,16 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
     setShowAnswerFeedback('idle');
     setAnswerInput('');
     setIsFlashcardRevealed(false);
+
+    if (randomMode === 'multiple_choice') {
+      const wordObj = words[index];
+      const wrongAnswers = allWords
+        .map((w) => w.translation)
+        .filter((t) => t !== wordObj.translation)
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3);
+      setCurrentOptions([...wrongAnswers, wordObj.translation].sort(() => 0.5 - Math.random()));
+    }
   };
 
   // Initialize first word mode
@@ -91,6 +102,25 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
       }
     }, 1500);
   };
+
+  useEffect(() => {
+    if (currentQuizMode === 'audio' && currentWord && showAnswerFeedback === 'idle') {
+      speakAudio(currentWord.word);
+    }
+  }, [currentQuizMode, currentIndex, currentWord, showAnswerFeedback]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (currentQuizMode === 'multiple_choice' && showAnswerFeedback === 'idle') {
+        const key = parseInt(e.key);
+        if (key >= 1 && key <= currentOptions.length) {
+          handleAnswer(currentOptions[key - 1] === currentWord.translation);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentQuizMode, showAnswerFeedback, currentOptions, currentWord]);
 
   const finishSession = async () => {
     setIsFinished(true);
@@ -144,40 +174,23 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   // --- Quiz Renderers ---
 
   const renderMultipleChoice = () => {
-    // Generate 3 random wrong answers
-    const wrongAnswers = allWords
-      .map((w) => w.translation)
-      .filter((t) => t !== currentWord.translation)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3);
-    
-    // Mix the correct answer in
-    const options = [...wrongAnswers, currentWord.translation].sort(() => 0.5 - Math.random());
-
     return (
       <div className="space-y-4">
         <h3 className="text-3xl font-bold text-center mb-8">{currentWord.word}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {options.map((opt, i) => {
-            let variant: "default" | "outline" | "destructive" | "secondary" = "outline";
-            if (showAnswerFeedback !== 'idle') {
-              if (opt === currentWord.translation) variant = "default"; // Highlight correct answer
-              else if (opt !== currentWord.translation && showAnswerFeedback === 'incorrect') variant = "destructive"; // Mark wrong choice (if selected, roughly)
-            }
-
+          {currentOptions.map((opt, i) => {
             return (
               <Button
                 key={i}
-                variant={variant}
-                className={`py-8 text-lg transition-all hover:scale-105 active:scale-95 duration-200 ${
-                  showAnswerFeedback !== 'idle' && opt === currentWord.translation 
-                    ? 'bg-green-600 hover:bg-green-700 text-white scale-105' 
-                    : ''
-                }`}
+                variant="outline"
+                className="py-8 text-lg transition-all hover:scale-105 active:scale-95 duration-200 relative"
                 disabled={showAnswerFeedback !== 'idle'}
                 onClick={() => handleAnswer(opt === currentWord.translation)}
               >
-                {opt}
+                <div className="absolute left-6 top-1/2 -translate-y-1/2 opacity-50 text-sm border rounded-sm w-6 h-6 flex items-center justify-center">
+                  {i + 1}
+                </div>
+                <span>{opt}</span>
               </Button>
             );
           })}
