@@ -32,6 +32,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const [currentQuizMode, setCurrentQuizMode] = useState<QuizMode>('multiple_choice');
   const [answerInput, setAnswerInput] = useState('');
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+  const [isFlashcardRevealed, setIsFlashcardRevealed] = useState(false);
 
   // Randomize quiz mode on a new word setup
   const setupNextWord = (index: number) => {
@@ -40,6 +41,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
     setCurrentQuizMode(randomMode);
     setShowAnswerFeedback('idle');
     setAnswerInput('');
+    setIsFlashcardRevealed(false);
   };
 
   // Initialize first word mode
@@ -220,8 +222,8 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
       <div className="space-y-8 text-center animate-in fade-in zoom-in-95 duration-300">
         <h3 className="text-4xl font-extrabold animate-in slide-in-from-top-4">{currentWord.word}</h3>
         
-        {showAnswerFeedback === 'idle' ? (
-          <Button size="lg" onClick={() => setShowAnswerFeedback('correct')} variant="secondary" className="w-full max-w-sm transition-transform hover:scale-105 active:scale-95 duration-200">
+        {!isFlashcardRevealed ? (
+          <Button size="lg" onClick={() => setIsFlashcardRevealed(true)} variant="secondary" className="w-full max-w-sm transition-transform hover:scale-105 active:scale-95 duration-200">
             Show Translation
           </Button>
         ) : (
