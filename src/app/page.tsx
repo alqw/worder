@@ -1,4 +1,5 @@
-import { getPacks, getWords, Word } from '@/lib/api';
+import { getPacks } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreatePackDialog } from '@/components/CreatePackDialog';
@@ -13,12 +14,11 @@ export default async function Home() {
   let masteredWords = 0;
   
   if (packs.length > 0) {
-    const promises = packs.map(async (pack) => {
-      const words = await getWords(pack.id);
-      totalWords += words.length;
-      masteredWords += words.filter((w: Word) => w.mastery_score === 5).length;
-    });
-    await Promise.all(promises);
+    const { data: allWords } = await supabase.from('words').select('mastery_score');
+    if (allWords) {
+      totalWords = allWords.length;
+      masteredWords = allWords.filter(w => w.mastery_score === 5).length;
+    }
   }
 
   return (
