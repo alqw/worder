@@ -38,10 +38,15 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const [activeOptionIndex, setActiveOptionIndex] = useState<number | null>(null);
   const router = useRouter();
 
+  const [isMounted, setIsMounted] = useState(false);
+
   // Randomize quiz mode on a new word setup
-  const setupNextWord = (index: number) => {
+  const setupNextWord = (index: number, isInitial = false) => {
+    // If it's the very first word, force a deterministic mode for SSR to match the client exactly.
+    // We'll set it to 'multiple_choice' and populate options right away.
     const modes: QuizMode[] = ['multiple_choice', 'written', 'flashcard', 'audio'];
-    const randomMode = modes[Math.floor(Math.random() * modes.length)];
+    const randomMode = isInitial ? 'multiple_choice' : modes[Math.floor(Math.random() * modes.length)];
+    
     setCurrentQuizMode(randomMode);
     setShowAnswerFeedback('idle');
     setAnswerInput('');
@@ -59,9 +64,10 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   };
 
   // Initialize first word mode
-  useState(() => {
-    setupNextWord(0);
-  });
+  useEffect(() => {
+    setupNextWord(0, true);
+    setIsMounted(true);
+  }, []);
 
   const currentWord = words[currentIndex];
   const progressPercent = Math.round((currentIndex / initialWords.length) * 100);
@@ -183,7 +189,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   // isFinished is intentionally removed as we auto-restart. Left just in case a blank state is needed.
   if (isFinished) return null;
 
-  if (!currentWord) return null;
+  if (!currentWord || !isMounted) return null;
 
   // --- Quiz Renderers ---
 
