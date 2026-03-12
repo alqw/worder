@@ -61,6 +61,46 @@ export default function LoginPage() {
     }
   };
 
+  const handleAnonymousSignIn = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInAnonymously();
+      
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Signed in as a guest!');
+        router.push('/');
+        router.refresh();
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          // Typically redirect back to the home page or an auth callback route
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      
+      if (error) {
+        toast.error(error.message);
+        setLoading(false); // only disable loading if error, otherwise it's redirecting
+      }
+    } catch (err) {
+      toast.error('An unexpected error occurred');
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md shadow-xl border-primary/20">
@@ -103,6 +143,45 @@ export default function LoginPage() {
               </Button>
             </div>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-muted" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                variant="outline" 
+                type="button" 
+                disabled={loading}
+                onClick={() => handleOAuthSignIn('google')}
+              >
+                Google
+              </Button>
+              <Button 
+                variant="outline" 
+                type="button" 
+                disabled={loading}
+                onClick={() => handleOAuthSignIn('github')}
+              >
+                GitHub
+              </Button>
+            </div>
+            <Button 
+              variant="secondary" 
+              type="button" 
+              disabled={loading}
+              onClick={handleAnonymousSignIn}
+              className="w-full"
+            >
+              Continue as Guest (Anonymous)
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
