@@ -20,6 +20,15 @@ interface SessionClientProps {
   totalPackMastered: number;
   totalPackWords: number;
 }
+// True Fisher-Yates shuffle to guarantee randomness
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 export function SessionClient({ initialWords, packId, mode, allWords, totalPackMastered, totalPackWords }: SessionClientProps) {
   const [sessionBucket, setSessionBucket] = useState<Word[]>(initialWords);
@@ -49,18 +58,22 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
     if (!wordObj) return;
 
     // The sequence is tied directly to the mastery score of the specific word:
-    // Score 0 or 1 -> Flashcard
-    // Score 2 -> Multiple Choice
-    // Score 3 -> Written Translation
-    // Score 4 -> Audio Dictation
-    // (Note: Since we fetch words < 5, score 5 shouldn't appear here, but we default to audio)
+    // Score 0 -> Flashcard
+    // Score 1 -> Multiple Choice
+    // Score 2 -> Written Translation
+    // Score 3 -> Audio Dictation
+    // Score 4 -> Random 'Final Exam' mode to prove they really know it before reaching 5
     let sequenceMode: QuizMode = 'flashcard';
     const score = sessionScores[wordObj.id] ?? wordObj.mastery_score;
 
-    if (score <= 1) sequenceMode = 'flashcard';
-    else if (score === 2) sequenceMode = 'multiple_choice';
-    else if (score === 3) sequenceMode = 'written';
-    else sequenceMode = 'audio';
+    if (score === 0) sequenceMode = 'flashcard';
+    else if (score === 1) sequenceMode = 'multiple_choice';
+    else if (score === 2) sequenceMode = 'written';
+    else if (score === 3) sequenceMode = 'audio';
+    else {
+      const allModes: QuizMode[] = ['flashcard', 'multiple_choice', 'written', 'audio'];
+      sequenceMode = allModes[Math.floor(Math.random() * allModes.length)];
+    }
     
     setCurrentQuizMode(sequenceMode);
     setShowAnswerFeedback('idle');
@@ -68,19 +81,17 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
     setIsFlashcardRevealed(false);
 
     if (sequenceMode === 'multiple_choice') {
-      const wrongAnswers = allWords
-        .map((w) => w.translation)
-        .filter((t) => t !== wordObj.translation)
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 3);
-      setCurrentOptions([...wrongAnswers, wordObj.translation].sort(() => 0.5 - Math.random()));
+      const wrongAnswers = shuffleArray(
+        allWords.map((w) => w.translation).filter((t) => t !== wordObj.translation)
+      ).slice(0, 3);
+      setCurrentOptions(shuffleArray([...wrongAnswers, wordObj.translation]));
     }
   };
 
   // Initialize first word mode and shuffle the starting array
   useEffect(() => {
     // Shuffle the initial words so the sequence of vocabulary being tested is randomized
-    const shuffled = [...initialWords].sort(() => 0.5 - Math.random());
+    const shuffled = shuffleArray(initialWords);
     setWords(shuffled);
     setSessionBucket(shuffled);
     setCurrentIndex(0);
@@ -216,7 +227,7 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
         // User hasn't finished this 10-word bucket. Repeat only the unlearned ones.
         toast.info(`Let's review the ${unlearnedInBucket.length} words you missed!`);
         // Shuffle the unlearned words so they don't appear in the exact same order
-        const shuffledRemaining = [...unlearnedInBucket].sort(() => 0.5 - Math.random());
+        const shuffledRemaining = shuffleArray(unlearnedInBucket);
         setWords(shuffledRemaining);
         setCurrentIndex(0);
         // setupNextWord is handled automatically by the useEffect watching `words` and `currentIndex`
