@@ -1,0 +1,16 @@
+{
+  "name": "Worder - Vocabulary App",
+  "short_name": "Worder",
+  "description": "Master your vocabulary with spaced repetition.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

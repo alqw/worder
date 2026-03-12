@@ -10,6 +10,19 @@ const poppins = Poppins({
   variable: '--font-sans',
 });
 
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Worder',
+  description: 'Master your vocabulary with spaced repetition.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Worder',
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
