@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Word, updateWordMastery } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +35,8 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const [showAnswerFeedback, setShowAnswerFeedback] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [isFlashcardRevealed, setIsFlashcardRevealed] = useState(false);
   const [currentOptions, setCurrentOptions] = useState<string[]>([]);
+  const [activeOptionIndex, setActiveOptionIndex] = useState<number | null>(null);
+  const router = useRouter();
 
   // Randomize quiz mode on a new word setup
   const setupNextWord = (index: number) => {
@@ -111,19 +114,42 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Flashcard hotkeys
+      if (currentQuizMode === 'flashcard' && showAnswerFeedback === 'idle') {
+        if (!isFlashcardRevealed && e.key === 'Enter') {
+          e.preventDefault();
+          setIsFlashcardRevealed(true);
+        } else if (isFlashcardRevealed) {
+          if (e.key === '1') {
+            e.preventDefault();
+            setActiveOptionIndex(0);
+            handleAnswer(false);
+            setTimeout(() => setActiveOptionIndex(null), 150);
+          } else if (e.key === '2') {
+            e.preventDefault();
+            setActiveOptionIndex(1);
+            handleAnswer(true);
+            setTimeout(() => setActiveOptionIndex(null), 150);
+          }
+        }
+      }
+
+      // Multiple choice hotkeys
       if (currentQuizMode === 'multiple_choice' && showAnswerFeedback === 'idle') {
         const key = parseInt(e.key);
         if (key >= 1 && key <= currentOptions.length) {
+          e.preventDefault();
+          setActiveOptionIndex(key - 1);
           handleAnswer(currentOptions[key - 1] === currentWord.translation);
+          setTimeout(() => setActiveOptionIndex(null), 150);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentQuizMode, showAnswerFeedback, currentOptions, currentWord]);
+  }, [currentQuizMode, showAnswerFeedback, currentOptions, currentWord, isFlashcardRevealed]);
 
   const finishSession = async () => {
-    setIsFinished(true);
     setSaving(true);
     try {
       // Save all updated scores to DB
@@ -134,11 +160,12 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
         }
       });
       await Promise.all(promises);
-      toast.success('Session progress saved!');
+      toast.success('Session saved! Loading next round...');
+      // Start a new session instantly by remounting/reloading the page
+      window.location.reload();
     } catch (err) {
       toast.error('Failed to save progress.');
       console.error(err);
-    } finally {
       setSaving(false);
     }
   };
@@ -153,21 +180,8 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
     }
   };
 
-  if (isFinished) {
-    return (
-      <div className="text-center space-y-6 animate-in fade-in duration-500">
-        <h2 className="text-3xl font-extrabold text-foreground">Session Complete!</h2>
-        <p className="text-muted-foreground text-lg">
-          You have completed {initialWords.length} words in "{mode}".
-        </p>
-        <div className="flex justify-center mt-6">
-          <Button size="lg" asChild disabled={saving}>
-            <a href={`/packs/${packId}`}>Return to Pack</a>
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // isFinished is intentionally removed as we auto-restart. Left just in case a blank state is needed.
+  if (isFinished) return null;
 
   if (!currentWord) return null;
 
@@ -183,7 +197,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
               <Button
                 key={i}
                 variant="outline"
-                className="h-auto py-6 px-12 text-lg text-left transition-all hover:scale-105 active:scale-95 duration-200 relative break-words"
+                className={`h-auto py-6 px-12 text-lg text-left transition-all hover:scale-105 active:scale-95 duration-200 relative break-words ${activeOptionIndex === i ? 'scale-95 bg-accent opacity-80' : ''}`}
                 disabled={showAnswerFeedback !== 'idle'}
                 onClick={() => handleAnswer(opt === currentWord.translation)}
               >
@@ -243,12 +257,18 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
           <div className="space-y-6 animate-in slide-in-from-bottom-6 fade-in duration-500">
             <h4 className="text-2xl font-medium text-primary">{currentWord.translation}</h4>
             <div className="flex gap-4 justify-center">
-              <Button size="lg" variant="destructive" onClick={() => handleAnswer(false)} className="gap-2 transition-transform hover:scale-105 active:scale-95 duration-200">
-                <XCircle size={18} /> Did not know
-              </Button>
-              <Button size="lg" onClick={() => handleAnswer(true)} className="gap-2 bg-green-600 hover:bg-green-700 text-white transition-transform hover:scale-105 active:scale-95 duration-200">
-                <CheckCircle2 size={18} /> Knew it!
-              </Button>
+              <div className="flex flex-col items-center gap-2">
+                <Button size="lg" variant="destructive" onClick={() => handleAnswer(false)} className={`gap-2 transition-transform hover:scale-105 active:scale-95 duration-200 ${activeOptionIndex === 0 ? 'scale-95 opacity-80 shadow-inner' : ''}`}>
+                  <XCircle size={18} /> Did not know
+                </Button>
+                <span className="text-xs text-muted-foreground font-medium">Press 1</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <Button size="lg" onClick={() => handleAnswer(true)} className={`gap-2 bg-green-600 hover:bg-green-700 text-white transition-transform hover:scale-105 active:scale-95 duration-200 ${activeOptionIndex === 1 ? 'scale-95 opacity-80 shadow-inner' : ''}`}>
+                  <CheckCircle2 size={18} /> Knew it!
+                </Button>
+                <span className="text-xs text-muted-foreground font-medium">Press 2</span>
+              </div>
             </div>
           </div>
         )}
@@ -306,8 +326,16 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   return (
     <div className="w-full">
       <div className="mb-6 flex justify-between items-center text-sm text-muted-foreground">
-        <span>Word {currentIndex + 1} of {initialWords.length}</span>
-        <span>Current Score: {sessionScores[currentWord.id]}/5</span>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/packs/${packId}`)} className="text-muted-foreground hover:text-destructive px-2 -ml-2" title="Quit without saving">
+            <XCircle size={18} className="mr-2" /> Quit
+          </Button>
+          <span className="hidden sm:inline">Word {currentIndex + 1} of {initialWords.length}</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="sm:hidden">Word {currentIndex + 1} / {initialWords.length}</span>
+          <span>Score: {sessionScores[currentWord.id]}/5</span>
+        </div>
       </div>
       <Progress value={progressPercent} className="h-2 mb-10" />
 
