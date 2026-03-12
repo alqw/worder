@@ -112,18 +112,29 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
   // Calculate progress against the current active array size, not the initial size 
   const progressPercent = Math.round((currentIndex / words.length) * 100);
 
-  // Helper to check if a user input matches *any* part of a multi-word translation
+  // Helper to check if user input matches the translation.
   const checkPartialTranslation = (input: string, correctTranslation: string) => {
-    const normalize = (s: string) => s.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    // Remove anything in parentheses (e.g., helpers like "(something)")
+    const stripParens = (s: string) => s.replace(/\([^)]*\)/g, "");
+
+    // Normalize: strip parens, lower, trim, remove all punctuation, collapse extra spaces
+    const normalize = (s: string) => stripParens(s)
+      .toLowerCase()
+      .trim()
+      .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "")
+      .replace(/\s+/g, " ");
+
     const normalizedInput = normalize(input);
     if (!normalizedInput) return false;
 
-    // Split the correct translation by commas, slashes, or spaces to get possible valid answers
-    // Example: "bicycle, bike" -> ["bicycle", "bike"]
-    const possibleAnswers = correctTranslation.split(/[\s,/]+/).map(normalize).filter(Boolean);
+    // Split the translation into separate valid synonym phrases ONLY by comma or slash
+    const possiblePhrases = stripParens(correctTranslation)
+      .split(/[,/]+/)
+      .map(normalize)
+      .filter(Boolean);
     
-    // Check if the input exactly matches the full translation OR any of the individual words
-    return normalize(correctTranslation) === normalizedInput || possibleAnswers.includes(normalizedInput);
+    // Check if the input exactly matches the full translation OR any of the separated synonyms
+    return normalize(correctTranslation) === normalizedInput || possiblePhrases.includes(normalizedInput);
   };
 
   const handleAnswer = (isCorrect: boolean) => {
