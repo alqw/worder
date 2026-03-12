@@ -35,6 +35,22 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
 
   const wordsToLearn = words.filter((w) => w.mastery_score < 5).length;
 
+  const sortedWords = [...words].sort((a, b) => {
+    // Both are learned -> sort alphabetically
+    if (a.mastery_score === 5 && b.mastery_score === 5) return a.word.localeCompare(b.word);
+    
+    // Put learned words at the bottom
+    if (a.mastery_score === 5) return 1;
+    if (b.mastery_score === 5) return -1;
+    
+    // Sort unlearned words by score descending (highest score first)
+    if (b.mastery_score !== a.mastery_score) {
+      return b.mastery_score - a.mastery_score;
+    }
+    // If scores are equal, sort alphabetically
+    return a.word.localeCompare(b.word);
+  });
+
   return (
     <div className="container mx-auto py-10 px-4 max-w-5xl">
       <div className="mb-8">
@@ -133,7 +149,7 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
             </div>
           ) : (
             <div className="divide-y max-h-[600px] overflow-y-auto">
-              {words.map((word) => (
+              {sortedWords.map((word) => (
                 <div
                   key={word.id}
                   className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
