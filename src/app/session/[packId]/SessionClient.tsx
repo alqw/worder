@@ -17,9 +17,12 @@ interface SessionClientProps {
   packId: string;
   mode: 'learn' | 'review';
   allWords: { word: string; translation: string }[];
+  totalPackMastered: number;
+  totalPackWords: number;
 }
 
-export function SessionClient({ initialWords, packId, mode, allWords }: SessionClientProps) {
+export function SessionClient({ initialWords, packId, mode, allWords, totalPackMastered, totalPackWords }: SessionClientProps) {
+  const [sessionBucket, setSessionBucket] = useState<Word[]>(initialWords);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [words, setWords] = useState<Word[]>(initialWords);
   const [sessionScores, setSessionScores] = useState<Record<string, number>>(
@@ -73,17 +76,19 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const currentWord = words[currentIndex];
   const progressPercent = Math.round((currentIndex / initialWords.length) * 100);
 
-  // Helper to check if a user input matches *any* part of a multi-word translation
+  // Helper to check if user input matches the translation.
+  // The user requested that if a word consists of multiple words (e.g. "two words"), 
+  // they MUST type the full phrase. It still allows splitting by comma for synonyms.
   const checkPartialTranslation = (input: string, correctTranslation: string) => {
     const normalize = (s: string) => s.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
     const normalizedInput = normalize(input);
     if (!normalizedInput) return false;
 
-    // Split the correct translation by commas, slashes, or spaces to get possible valid answers
-    const possibleAnswers = correctTranslation.split(/[\s,/]+/).map(normalize).filter(Boolean);
+    // Split the correct translation by commas (or slashes) to get possible valid full-phrase synonyms
+    const possiblePhrases = correctTranslation.split(/[,/]+/).map(normalize).filter(Boolean);
     
-    // Check if the input exactly matches the full translation OR any of the individual words
-    return normalize(correctTranslation) === normalizedInput || possibleAnswers.includes(normalizedInput);
+    // Check if the input exactly matches any of the full valid phrases
+    return possiblePhrases.includes(normalizedInput);
   };
 
   const handleAnswer = (isCorrect: boolean) => {
@@ -171,19 +176,34 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
     setSaving(true);
     try {
       // Save all updated scores to DB
-      const promises = words.map(async (w) => {
+      const promises = sessionBucket.map(async (w) => {
         const score = sessionScores[w.id];
         if (score !== w.mastery_score) {
           await updateWordMastery(w.id, score);
+          // Mutate the local object so bucket filter checks the new score
+          w.mastery_score = score;
         }
       });
       await Promise.all(promises);
-      toast.success('Session saved! Loading next round...');
-      // Start a new session instantly by remounting/reloading the page
-      window.location.reload();
+
+      // Check if all words in the current 10-word bucket are fully learned (score 5)
+      const unlearnedInBucket = sessionBucket.filter(w => sessionScores[w.id] < 5);
+
+      if (unlearnedInBucket.length > 0 && mode === 'learn') {
+        // User hasn't finished this 10-word bucket. Repeat only the unlearned ones.
+        toast.info(`Let's review the ${unlearnedInBucket.length} words you missed!`);
+        setWords(unlearnedInBucket);
+        setCurrentIndex(0);
+        setTimeout(() => setupNextWord(0, true), 0);
+      } else {
+        // Bucket is completely learned, OR we're in review mode (where we just do 1 pass)
+        toast.success('Awesome! Moving to the next set...');
+        window.location.reload();
+      }
     } catch (err) {
       toast.error('Failed to save progress.');
       console.error(err);
+    } finally {
       setSaving(false);
     }
   };
@@ -354,7 +374,10 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
         </div>
         <div className="flex items-center gap-4">
           <span className="sm:hidden">Word {currentIndex + 1} / {initialWords.length}</span>
-          <span>Score: {sessionScores[currentWord.id]}/5</span>
+          <span className="hidden sm:inline" title="Current session mastery">Score: {sessionScores[currentWord.id]}/5</span>
+          <span className="text-primary font-medium" title="Global pack progress">
+            {totalPackMastered} / {totalPackWords} Learned
+          </span>
         </div>
       </div>
       <Progress value={progressPercent} className="h-2 mb-10" />

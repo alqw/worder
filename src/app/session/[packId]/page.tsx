@@ -17,9 +17,11 @@ export default async function SessionPage({
 
   // Fetch session target words and background distractor words concurrently
   const { supabase } = await import('@/lib/supabase');
-  const [words, { data: allWords }] = await Promise.all([
+  const [words, { data: allWords }, totalRes, masteredRes] = await Promise.all([
     mode === 'review' ? getWordsForReview(packId, 10) : getWordsForLearning(packId, 10),
-    supabase.from('words').select('word, translation').eq('pack_id', packId)
+    supabase.from('words').select('word, translation').eq('pack_id', packId),
+    supabase.from('words').select('*', { count: 'exact', head: true }).eq('pack_id', packId),
+    supabase.from('words').select('*', { count: 'exact', head: true }).eq('pack_id', packId).eq('mastery_score', 5)
   ]);
 
   if (words.length === 0) {
@@ -41,6 +43,8 @@ export default async function SessionPage({
         packId={packId} 
         mode={mode} 
         allWords={allWords || []} 
+        totalPackMastered={masteredRes.count || 0}
+        totalPackWords={totalRes.count || 0}
       />
     </div>
   );
