@@ -43,13 +43,24 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
   const inputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  // Sequential quiz mode on a new word setup
-  const setupNextWord = (index: number, isInitial = false) => {
-    // The sequence requested: Flashcard -> Multiple Choice -> Written -> Audio
-    const sequence: QuizMode[] = ['flashcard', 'multiple_choice', 'written', 'audio'];
-    
-    // For SSR we must deterministically return 'flashcard' since it's index 0
-    const sequenceMode = isInitial ? 'flashcard' : sequence[index % sequence.length];
+  // Mastery-based quiz mode selection
+  const setupNextWord = (index: number) => {
+    const wordObj = words[index];
+    if (!wordObj) return;
+
+    // The sequence is tied directly to the mastery score of the specific word:
+    // Score 0 or 1 -> Flashcard
+    // Score 2 -> Multiple Choice
+    // Score 3 -> Written Translation
+    // Score 4 -> Audio Dictation
+    // (Note: Since we fetch words < 5, score 5 shouldn't appear here, but we default to audio)
+    let sequenceMode: QuizMode = 'flashcard';
+    const score = sessionScores[wordObj.id] ?? wordObj.mastery_score;
+
+    if (score <= 1) sequenceMode = 'flashcard';
+    else if (score === 2) sequenceMode = 'multiple_choice';
+    else if (score === 3) sequenceMode = 'written';
+    else sequenceMode = 'audio';
     
     setCurrentQuizMode(sequenceMode);
     setShowAnswerFeedback('idle');
@@ -57,7 +68,6 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
     setIsFlashcardRevealed(false);
 
     if (sequenceMode === 'multiple_choice') {
-      const wordObj = words[index];
       const wrongAnswers = allWords
         .map((w) => w.translation)
         .filter((t) => t !== wordObj.translation)
@@ -67,28 +77,41 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
     }
   };
 
-  // Initialize first word mode
+  // Initialize first word mode and shuffle the starting array
   useEffect(() => {
-    setupNextWord(0, true);
-    setIsMounted(true);
+    // Shuffle the initial words so the sequence of vocabulary being tested is randomized
+    const shuffled = [...initialWords].sort(() => 0.5 - Math.random());
+    setWords(shuffled);
+    setSessionBucket(shuffled);
+    setCurrentIndex(0);
+    // Use setTimeout so the state update above applies before setting up the word
+    setTimeout(() => {
+        setIsMounted(true);
+    }, 0);
   }, []);
+
+  // When 'words' updates in the above hook, this effect will trigger to set the quiz mode
+  useEffect(() => {
+      if (isMounted) {
+          setupNextWord(currentIndex);
+      }
+  }, [currentIndex, isMounted, words]);
 
   const currentWord = words[currentIndex];
   const progressPercent = Math.round((currentIndex / initialWords.length) * 100);
 
-  // Helper to check if user input matches the translation.
-  // The user requested that if a word consists of multiple words (e.g. "two words"), 
-  // they MUST type the full phrase. It still allows splitting by comma for synonyms.
+  // Helper to check if a user input matches *any* part of a multi-word translation
   const checkPartialTranslation = (input: string, correctTranslation: string) => {
     const normalize = (s: string) => s.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
     const normalizedInput = normalize(input);
     if (!normalizedInput) return false;
 
-    // Split the correct translation by commas (or slashes) to get possible valid full-phrase synonyms
-    const possiblePhrases = correctTranslation.split(/[,/]+/).map(normalize).filter(Boolean);
+    // Split the correct translation by commas, slashes, or spaces to get possible valid answers
+    // Example: "bicycle, bike" -> ["bicycle", "bike"]
+    const possibleAnswers = correctTranslation.split(/[\s,/]+/).map(normalize).filter(Boolean);
     
-    // Check if the input exactly matches any of the full valid phrases
-    return possiblePhrases.includes(normalizedInput);
+    // Check if the input exactly matches the full translation OR any of the individual words
+    return normalize(correctTranslation) === normalizedInput || possibleAnswers.includes(normalizedInput);
   };
 
   const handleAnswer = (isCorrect: boolean) => {
@@ -111,7 +134,7 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
     setTimeout(() => {
       if (currentIndex + 1 < words.length) {
         setCurrentIndex(currentIndex + 1);
-        setupNextWord(currentIndex + 1);
+        // setupNextWord is handled automatically by the useEffect watching currentIndex
       } else {
         finishSession();
       }
@@ -192,9 +215,11 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
       if (unlearnedInBucket.length > 0 && mode === 'learn') {
         // User hasn't finished this 10-word bucket. Repeat only the unlearned ones.
         toast.info(`Let's review the ${unlearnedInBucket.length} words you missed!`);
-        setWords(unlearnedInBucket);
+        // Shuffle the unlearned words so they don't appear in the exact same order
+        const shuffledRemaining = [...unlearnedInBucket].sort(() => 0.5 - Math.random());
+        setWords(shuffledRemaining);
         setCurrentIndex(0);
-        setTimeout(() => setupNextWord(0, true), 0);
+        // setupNextWord is handled automatically by the useEffect watching `words` and `currentIndex`
       } else {
         // Bucket is completely learned, OR we're in review mode (where we just do 1 pass)
         toast.success('Awesome! Moving to the next set...');
