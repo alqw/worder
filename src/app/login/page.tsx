@@ -80,7 +80,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleOAuthSignIn = async (provider: 'google' | 'github') => {
+  const handleOAuthSignIn = async (provider: 'google' | 'github' | 'apple') => {
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -154,7 +154,7 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <Button 
                 variant="outline" 
                 type="button" 
@@ -170,6 +170,14 @@ export default function LoginPage() {
                 onClick={() => handleOAuthSignIn('github')}
               >
                 GitHub
+              </Button>
+              <Button 
+                variant="outline" 
+                type="button" 
+                disabled={loading}
+                onClick={() => handleOAuthSignIn('apple')}
+              >
+                Apple
               </Button>
             </div>
             <Button 
