@@ -15,11 +15,12 @@ export default async function SessionPage({
   const { packId } = await params;
   const mode = searchMode === 'review' ? 'review' : 'learn';
 
-  // Retrieve 10 words based on mode
-  const words =
-    mode === 'review'
-      ? await getWordsForReview(packId, 10)
-      : await getWordsForLearning(packId, 10);
+  // Fetch session target words and background distractor words concurrently
+  const { supabase } = await import('@/lib/supabase');
+  const [words, { data: allWords }] = await Promise.all([
+    mode === 'review' ? getWordsForReview(packId, 10) : getWordsForLearning(packId, 10),
+    supabase.from('words').select('word, translation').eq('pack_id', packId)
+  ]);
 
   if (words.length === 0) {
     return (
@@ -32,12 +33,6 @@ export default async function SessionPage({
       </div>
     );
   }
-
-  // Pre-fetch distractor words for multiple choice mode
-  // We need to fetch the whole pack just to have wrong options
-  // In a massive app, we'd do a random order query, but for a small pack fetching all is fine.
-  const { supabase } = await import('@/lib/supabase');
-  const { data: allWords } = await supabase.from('words').select('word, translation').eq('pack_id', packId);
 
   return (
     <div className="container mx-auto py-10 px-4 max-w-2xl min-h-[80vh] flex flex-col justify-center">

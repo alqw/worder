@@ -12,13 +12,13 @@ export default async function Home() {
   // Calculate global progress
   let totalWords = 0;
   let masteredWords = 0;
-  
   if (packs.length > 0) {
-    const { data: allWords } = await supabase.from('words').select('mastery_score');
-    if (allWords) {
-      totalWords = allWords.length;
-      masteredWords = allWords.filter(w => w.mastery_score === 5).length;
-    }
+    const [totalRes, masteredRes] = await Promise.all([
+      supabase.from('words').select('*', { count: 'exact', head: true }),
+      supabase.from('words').select('*', { count: 'exact', head: true }).eq('mastery_score', 5)
+    ]);
+    totalWords = totalRes.count || 0;
+    masteredWords = masteredRes.count || 0;
   }
 
   return (

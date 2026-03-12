@@ -12,13 +12,16 @@ export const revalidate = 0;
 
 export default async function PackPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const pack = await getPack(id);
+  
+  // Fetch the pack metadata and all its words concurrently to avoid a waterfall
+  const [pack, words] = await Promise.all([
+    getPack(id),
+    getWords(id)
+  ]);
   
   if (!pack) {
     notFound();
   }
-
-  const words = await getWords(pack.id);
   const learnedCount = words.filter((w) => w.mastery_score === 5).length;
   const totalCount = words.length;
   const progressPercent = totalCount === 0 ? 0 : Math.round((learnedCount / totalCount) * 100);
