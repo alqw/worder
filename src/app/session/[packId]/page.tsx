@@ -1,6 +1,7 @@
 import { getWordsForLearning, getWordsForReview } from '@/lib/api';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { SessionClient } from './SessionClient';
+import { createClient } from '@/utils/supabase/server';
 
 export const revalidate = 0;
 
@@ -15,10 +16,16 @@ export default async function SessionPage({
   const { packId } = await params;
   const mode = searchMode === 'review' ? 'review' : 'learn';
 
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
   // Fetch session target words and background distractor words concurrently
-  const { supabase } = await import('@/lib/supabase');
   const [words, { data: allWords }, totalRes, masteredRes] = await Promise.all([
-    mode === 'review' ? getWordsForReview(packId, 10) : getWordsForLearning(packId, 10),
+    mode === 'review' ? getWordsForReview(supabase, packId, 10) : getWordsForLearning(supabase, packId, 10),
     supabase.from('words').select('word, translation').eq('pack_id', packId),
     supabase.from('words').select('*', { count: 'exact', head: true }).eq('pack_id', packId),
     supabase.from('words').select('*', { count: 'exact', head: true }).eq('pack_id', packId).eq('mastery_score', 5)

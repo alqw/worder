@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Plus } from 'lucide-react';
 import { createPack } from '@/lib/api';
 import { toast } from 'sonner';
+import { createClient } from '@/utils/supabase/client';
 
 export function CreatePackDialog() {
   const [open, setOpen] = useState(false);
@@ -34,8 +35,9 @@ export function CreatePackDialog() {
     if (!name.trim()) return;
 
     setLoading(true);
+    const supabase = createClient();
     try {
-      const pack = await createPack(name);
+      const pack = await createPack(supabase, name);
       toast.success('Pack created successfully!');
       setOpen(false);
       setName('');

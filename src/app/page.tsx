@@ -1,13 +1,22 @@
 import { getPacks } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/utils/supabase/server';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CreatePackDialog } from '@/components/CreatePackDialog';
+import { Button } from '@/components/ui/button';
+import { redirect } from 'next/navigation';
 
 export const revalidate = 0; // Disable static rendering for this page to always show latest packs
 
 export default async function Home() {
-  const packs = await getPacks();
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  const packs = await getPacks(supabase);
 
   // Calculate global progress
   let totalWords = 0;
@@ -29,15 +38,24 @@ export default async function Home() {
             Worder
           </h1>
           <p className="text-xl text-muted-foreground mb-4">
-            Master your vocabulary with spaced repetition.
+            Welcome back, {user.email?.split('@')[0]}!
           </p>
           <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-primary/10 text-primary">
             {masteredWords} / {totalWords} Words Mastered
           </div>
         </div>
         
-        {/* We will build a Create Pack dialog soon, for now it links to a dummy page or we just show a button */}
-        <CreatePackDialog />
+        <div className="flex items-center gap-4">
+          <CreatePackDialog />
+          <form action={async () => {
+            'use server';
+            const supabase = await createClient();
+            await supabase.auth.signOut();
+            redirect('/login');
+          }}>
+            <Button variant="outline" type="submit">Sign Out</Button>
+          </form>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

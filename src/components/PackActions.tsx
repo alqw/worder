@@ -7,6 +7,7 @@ import { Upload, Download } from "lucide-react";
 import { toast } from "sonner";
 import { upsertWords, Word } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 interface PackActionsProps {
   packId: string;
@@ -65,7 +66,8 @@ export function PackActions({ packId, packName, words }: PackActionsProps) {
         return;
       }
 
-      await upsertWords(wordsToInsert);
+      const supabase = createClient();
+      await upsertWords(supabase, wordsToInsert);
       toast.success(`Successfully imported ${wordsToInsert.length} words!`);
       router.refresh();
     } catch (err) {

@@ -1,5 +1,6 @@
 import { getPack, getWords } from "@/lib/api";
-import { notFound } from "next/navigation";
+import { createClient } from '@/utils/supabase/server';
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,11 +13,17 @@ export const revalidate = 0;
 
 export default async function PackPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
   
   // Fetch the pack metadata and all its words concurrently to avoid a waterfall
   const [pack, words] = await Promise.all([
-    getPack(id),
-    getWords(id)
+    getPack(supabase, id),
+    getWords(supabase, id)
   ]);
   
   if (!pack) {

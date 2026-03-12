@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Word, updateWordMastery } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import { createClient } from '@/utils/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, Play, Volume2, XCircle } from 'lucide-react';
@@ -220,12 +221,13 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
 
   const finishSession = async () => {
     setSaving(true);
+    const supabase = createClient();
     try {
       // Save all updated scores to DB
       const promises = sessionBucket.map(async (w) => {
         const score = sessionScores[w.id];
         if (score !== w.mastery_score) {
-          await updateWordMastery(w.id, score);
+          await updateWordMastery(supabase, w.id, score);
           // Mutate the local object so bucket filter checks the new score
           w.mastery_score = score;
         }
