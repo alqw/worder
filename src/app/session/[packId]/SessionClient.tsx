@@ -1,5 +1,5 @@
 'use client';
-
+import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Word, updateWordMastery } from '@/lib/api';
@@ -36,23 +36,24 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
   const [isFlashcardRevealed, setIsFlashcardRevealed] = useState(false);
   const [currentOptions, setCurrentOptions] = useState<string[]>([]);
   const [activeOptionIndex, setActiveOptionIndex] = useState<number | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Randomize quiz mode on a new word setup
+  // Sequential quiz mode on a new word setup
   const setupNextWord = (index: number, isInitial = false) => {
-    // If it's the very first word, force a deterministic mode for SSR to match the client exactly.
-    // We'll set it to 'multiple_choice' and populate options right away.
-    const modes: QuizMode[] = ['multiple_choice', 'written', 'flashcard', 'audio'];
-    const randomMode = isInitial ? 'multiple_choice' : modes[Math.floor(Math.random() * modes.length)];
+    // The sequence requested: Flashcard -> Multiple Choice -> Written -> Audio
+    const sequence: QuizMode[] = ['flashcard', 'multiple_choice', 'written', 'audio'];
     
-    setCurrentQuizMode(randomMode);
+    // For SSR we must deterministically return 'flashcard' since it's index 0
+    const sequenceMode = isInitial ? 'flashcard' : sequence[index % sequence.length];
+    
+    setCurrentQuizMode(sequenceMode);
     setShowAnswerFeedback('idle');
     setAnswerInput('');
     setIsFlashcardRevealed(false);
 
-    if (randomMode === 'multiple_choice') {
+    if (sequenceMode === 'multiple_choice') {
       const wordObj = words[index];
       const wrongAnswers = allWords
         .map((w) => w.translation)
@@ -155,6 +156,17 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentQuizMode, showAnswerFeedback, currentOptions, currentWord, isFlashcardRevealed]);
 
+  // Ensure input gets focused properly when mode changes
+  useEffect(() => {
+    if ((currentQuizMode === 'written' || currentQuizMode === 'audio') && showAnswerFeedback === 'idle') {
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 50); // slight delay to ensure DOM is ready and animations have started
+    }
+  }, [currentQuizMode, showAnswerFeedback, currentIndex]);
+
   const finishSession = async () => {
     setSaving(true);
     try {
@@ -230,6 +242,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
         <h3 className="text-3xl font-bold mb-8 animate-in slide-in-from-top-4">{currentWord.word}</h3>
         <form onSubmit={checkAnswer} className="space-y-4 max-w-sm mx-auto">
           <Input
+            ref={inputRef}
             autoFocus
             placeholder="Type the translation..."
             className="text-center text-lg py-6 transition-all focus:scale-105 duration-200"
@@ -307,6 +320,7 @@ export function SessionClient({ initialWords, packId, mode, allWords }: SessionC
         
         <form onSubmit={checkAnswer} className="space-y-4 max-w-sm mx-auto">
           <Input
+            ref={inputRef}
             autoFocus
             placeholder="Type what you hear..."
             className="text-center text-lg py-6 transition-all focus:scale-105 duration-200"
