@@ -109,7 +109,8 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
   }, [currentIndex, isMounted, words]);
 
   const currentWord = words[currentIndex];
-  const progressPercent = Math.round((currentIndex / initialWords.length) * 100);
+  // Calculate progress against the current active array size, not the initial size 
+  const progressPercent = Math.round((currentIndex / words.length) * 100);
 
   // Helper to check if a user input matches *any* part of a multi-word translation
   const checkPartialTranslation = (input: string, correctTranslation: string) => {
@@ -406,10 +407,10 @@ export function SessionClient({ initialWords, packId, mode, allWords, totalPackM
           <Button variant="ghost" size="sm" onClick={() => router.push(`/packs/${packId}`)} className="text-muted-foreground hover:text-destructive px-2 -ml-2" title="Quit without saving">
             <XCircle size={18} className="mr-2" /> Quit
           </Button>
-          <span className="hidden sm:inline">Word {currentIndex + 1} of {initialWords.length}</span>
+          <span className="hidden sm:inline">Word {currentIndex + 1} of {words.length}</span>
         </div>
         <div className="flex items-center gap-4">
-          <span className="sm:hidden">Word {currentIndex + 1} / {initialWords.length}</span>
+          <span className="sm:hidden">Word {currentIndex + 1} / {words.length}</span>
           <span className="hidden sm:inline" title="Current session mastery">Score: {sessionScores[currentWord.id]}/5</span>
           <span className="text-primary font-medium" title="Global pack progress">
             {totalPackMastered} / {totalPackWords} Learned
